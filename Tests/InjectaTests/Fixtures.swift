@@ -102,3 +102,46 @@ final class UIGraph {
   let logger: any Logger
   @Singleton var settings: SettingsModel
 }
+
+// MARK: - Deferred dependencies: a factory escapes a captive transient, Lazy breaks a cycle
+
+@Injectable
+final class Clock: Sendable {
+  let id: Int
+  init(counter: Counter) { id = counter.bump() }
+}
+
+@Injectable
+final class Cache: Sendable {
+  let clock: @Sendable () -> Clock
+  init(clock: @escaping @Sendable () -> Clock) { self.clock = clock }
+}
+
+@Injectable
+final class Left: Sendable {
+  let right: Lazy<Right>
+  init(right: Lazy<Right>) { self.right = right }
+}
+
+@Injectable
+final class Right: Sendable {
+  let left: Left
+  init(left: Left) { self.left = left }
+}
+
+@Container
+final class FactoryGraph: Sendable {
+  let counter: Counter
+  @Transient var clock: Clock
+  @Singleton var cache: Cache
+  @Singleton var left: Left
+  @Singleton var right: Right
+}
+
+/// The same factory, written as a provider instead of an `@Injectable` initializer.
+@Container
+final class ProviderFactoryGraph: Sendable {
+  let counter: Counter
+  @Transient var clock: Clock
+  @Provides(.singleton) func makeCache(clock: @escaping @Sendable () -> Clock) -> Cache { Cache(clock: clock) }
+}

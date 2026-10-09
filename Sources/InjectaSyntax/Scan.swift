@@ -35,9 +35,13 @@ public struct TargetScan {
   }
 
   /// The needs of an auto-wired type, when this target declares it (`Module.Type` matches `Type`).
-  public func needs(of type: String) -> [String]? {
+  /// Deferred needs (`Lazy<T>`, `() -> T`) are listed apart from the edges.
+  public func needs(of type: String) -> (edges: [String], deferred: [String])? {
     let simple = type.split(separator: ".").last.map(String.init) ?? type
-    return injectables[simple]?.value.dependencies.map(\.label)
+    guard let dependencies = injectables[simple]?.value.dependencies else { return nil }
+    return (
+      edges: dependencies.filter { !$0.deferred }.map(\.label),
+      deferred: dependencies.filter(\.deferred).map(\.label))
   }
 
   /// One diagnostic line per problem only the whole target reveals (the macro already reports

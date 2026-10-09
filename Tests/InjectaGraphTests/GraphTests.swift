@@ -45,6 +45,27 @@ import Testing
   #expect(!issues[0].isError)
 }
 
+@Test func aDeferredDependencyIsNotAnEdge() {
+  let graph = Graph(container: "App", nodes: [
+    Node(name: "clock", lifetime: .transient, type: "Clock"),
+    Node(name: "cache", lifetime: .singleton, type: "Cache", deferred: ["clock"]),
+    Node(name: "left", lifetime: .singleton, type: "Left", deferred: ["right"]),
+    Node(name: "right", lifetime: .singleton, type: "Right", dependencies: ["left"]),
+  ])
+  #expect(graph.issues().isEmpty)
+  #expect(graph.describe().contains("cache: Cache [singleton] <- ~clock"))
+  #expect(graph.describe().contains("left: Left [singleton] <- ~right"))
+  #expect(graph.dot().contains("\"cache\" -> \"clock\" [style=dashed];"))
+  #expect(!graph.dot().contains("\"cache\" -> \"clock\";"))
+}
+
+@Test func aMissingDeferredEntryIsStillReported() {
+  let graph = Graph(container: "App", nodes: [
+    Node(name: "cache", lifetime: .singleton, type: "Cache", deferred: ["clock"])
+  ])
+  #expect(graph.issues() == [.missing(node: "cache", dependency: "clock")])
+}
+
 @Test func describeAndDotNameEveryEntry() {
   let graph = Graph(container: "App", nodes: [
     Node(name: "db", lifetime: .singleton, type: "Database", dependencies: ["config"]),

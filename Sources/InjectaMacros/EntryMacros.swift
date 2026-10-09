@@ -30,8 +30,18 @@ private struct EntryShape {
       name = lowerFirst(functionName.dropFirst(4))
       type = returnType.trimmedDescription
       access = function.modifiers.accessPrefix
-      let arguments = function.signature.parameterClause.parameters.map {
-        "\($0.firstName.text): self.\($0.firstName.text)"
+      let arguments = function.signature.parameterClause.parameters.map { parameter -> String in
+        let shape = DependencyShape.read(parameter.type, attributes: parameter.attributes)
+        let name = parameter.firstName.text
+        switch shape.wrap {
+        case .direct:
+          return "\(name): self.\(name)"
+        case .lazy:
+          return "\(name): Injecta.Lazy { self.\(name) }"
+        case .factory:
+          let body = shape.sendableFactory ? "@Sendable in self.\(name)" : "self.\(name)"
+          return "\(name): { \(body) }"
+        }
       }
       build = "self.\(functionName)(\(arguments.joined(separator: ", ")))"
       isFunction = true
@@ -40,9 +50,29 @@ private struct EntryShape {
     }
   }
 
-  var singletonGetter: String { "_injecta_\(name).get { \(build) }" }
+  /// Debug builds resolve through a cast so a missing `Needs` conformance is a trap that names the
+  /// plugin, not a compiler diagnostic that does not. Release builds keep the static call: one
+  /// initializer call, no cast.
+  var debugInject: String {
+    """
+    #if DEBUG
+    guard let needs = self as? \(type).Needs else { Injecta.missingPlugin("\(type)") }
+    return \(type)(injecting: needs)
+    #else
+    return \(type)(injecting: self)
+    #endif
+    """
+  }
+
+  var singletonGetter: String {
+    if isFunction { return "_injecta_\(name).get { \(build) }" }
+    return "_injecta_\(name).get {\n\(debugInject)\n}"
+  }
+
   var transientGetter: String {
-    "if let make = _injectaOverrides.\(name) { return make() }\nreturn \(build)"
+    let prelude = "if let make = _injectaOverrides.\(name) { return make() }\n"
+    if isFunction { return prelude + "return \(build)" }
+    return prelude + debugInject
   }
   var storage: DeclSyntax { "private let _injecta_\(raw: name) = Injecta.Once<\(raw: storable(type))>()" }
 }

@@ -49,7 +49,19 @@ public struct ContainerMacro: MemberMacro, ExtensionMacro {
     let parameters = model.parameters.map { "\($0.name): \(storable($0.type))" } + ["overrides: Overrides = Overrides()"]
     let assignments = model.parameters.map { "    self.\($0.name) = \($0.name)" }
     let eager = model.entries.filter { $0.lifetime == .singleton && $0.eager }.map { "    _ = self.\($0.name)" }
-    let body = (assignments + ["    self._injectaOverrides = overrides"] + seeds + eager).joined(separator: "\n")
+    // Compared with `injectaGraph`'s auto-wired entries: each must conform to `Type.Needs`, which
+    // is the line the plugin generates. Debug only, and after every stored property is set.
+    var seen: Set<String> = []
+    let checks = model.entries.filter(\.isAutoWired).compactMap { entry -> String? in
+      guard seen.insert(entry.type).inserted else { return nil }
+      return """
+          #if DEBUG
+          if !(self is \(entry.type).Needs) { Injecta.missingPlugin("\(entry.type)") }
+          #endif
+      """
+    }
+    let body = (assignments + ["    self._injectaOverrides = overrides"] + seeds + checks + eager)
+      .joined(separator: "\n")
     let initializer: DeclSyntax = """
       \(raw: access)init(\(raw: parameters.joined(separator: ", "))) {
       \(raw: body)
@@ -58,13 +70,16 @@ public struct ContainerMacro: MemberMacro, ExtensionMacro {
 
     let nodes = model.entries.map { entry -> String in
       let needs: String
+      let deferred: String
       if let dependencies = entry.dependencies {
-        needs = "[" + dependencies.map { "\"\($0.label)\"" }.joined(separator: ", ") + "]"
+        needs = list(dependencies.filter { !$0.deferred }.map(\.label))
+        deferred = list(dependencies.filter(\.deferred).map(\.label))
       } else {
         needs = "\(entry.type).injectaDependencies"
+        deferred = "\(entry.type).injectaDeferred"
       }
       return "      Injecta.Node(name: \"\(entry.name)\", lifetime: .\(entry.lifetime.rawValue), "
-        + "type: \(literal(entry.type)), dependencies: \(needs)),"
+        + "type: \(literal(entry.type)), dependencies: \(needs), deferred: \(deferred)),"
     }
     let graph: DeclSyntax = """
       /// Every entry and what it needs; check it in a test with `injectaGraph.issues()`.
@@ -92,5 +107,9 @@ public struct ContainerMacro: MemberMacro, ExtensionMacro {
 
   private static func literal(_ text: String) -> String {
     "\"" + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+  }
+
+  private static func list(_ names: [String]) -> String {
+    "[" + names.map { "\"\($0)\"" }.joined(separator: ", ") + "]"
   }
 }

@@ -38,6 +38,8 @@ final class InjectableMacroTests: XCTestCase {
 
           public static let injectaDependencies: [String] = ["db"]
 
+          public static let injectaDeferred: [String] = []
+
           public init(injecting needs: some Needs) {
             self.init(db: needs.db)
           }
@@ -71,8 +73,43 @@ final class InjectableMacroTests: XCTestCase {
 
           nonisolated static let injectaDependencies: [String] = ["client", "cwd"]
 
+          nonisolated static let injectaDeferred: [String] = []
+
           convenience init(injecting needs: some Needs) {
             self.init(client: needs.client, cwd: needs.cwd)
+          }
+        }
+        """)
+  }
+
+  func testLazyAndFactoryParametersAreWrappedAndNotEdges() {
+    assertExpansion(
+      """
+      @Injectable
+      final class Cache {
+        init(clock: @escaping @Sendable () -> Clock, later: Lazy<Clock>, name: String) {}
+      }
+      """,
+      """
+        final class Cache {
+          init(clock: @escaping @Sendable () -> Clock, later: Lazy<Clock>, name: String) {}
+        }
+
+        extension Cache: Injecta.Injectable {
+          /// What the container must provide to build `Cache`. A container conforms
+          /// through `@Container`; a missing entry is a "does not conform to `Needs`" error.
+          protocol Needs: Sendable {
+            var clock: Clock { get }
+            var later: Clock { get }
+            var name: String { get }
+          }
+
+          static let injectaDependencies: [String] = ["name"]
+
+          static let injectaDeferred: [String] = ["clock", "later"]
+
+          convenience init<Source: Needs & Sendable>(injecting needs: Source) {
+            self.init(clock: { @Sendable in needs.clock }, later: Injecta.Lazy { needs.later }, name: needs.name)
           }
         }
         """)

@@ -80,5 +80,7 @@ let package = Package(
       ]
     ),
     .testTarget(name: "InjectaTests", dependencies: ["Injecta"], plugins: ["InjectaCheckPlugin"]),
+    // No plugin: a debug build must trap with the setup step instead of a bare conformance error.
+    .testTarget(name: "InjectaNoPluginTests", dependencies: ["Injecta"]),
   ]
 )

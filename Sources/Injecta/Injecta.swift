@@ -29,6 +29,23 @@ public protocol Injectable {
   static var injectaDependencies: [String] { get }
 }
 
+/// What a debug build reports when an auto-wired entry has no `Needs` conformance.
+///
+/// The conformance is the line `InjectaCheckPlugin` writes. Without the plugin, and without that
+/// line written by hand, a debug build compiles and traps here on `init`, naming the setup step.
+/// A release build still fails at compile time, on `Type(injecting: self)`.
+public func missingPluginMessage(_ type: String) -> String {
+  "\(type) could not be built: this container does not conform to \(type).Needs. "
+    + "Attach InjectaCheckPlugin to the target that declares the container "
+    + "(GUIDE.md, \"The plugin\"), or add `extension <Container>: \(type).Needs {}` by hand."
+}
+
+/// Traps with `missingPluginMessage(_:)`. Generated into a container's `init` and getters, in
+/// debug builds only.
+public func missingPlugin(_ type: String) -> Never {
+  fatalError(missingPluginMessage(type))
+}
+
 /// A type declared with `@Container`. Conformance comes from the macro.
 public protocol Container {
   /// Every entry, its lifetime and what it needs: for `graph.issues()` in a test, for
@@ -42,9 +59,10 @@ public protocol Container {
 ///
 /// The container calls the initializer marked `@Inject`, else the only initializer, else a
 /// struct's memberwise initializer. Each argument label without a default value is an entry the
-/// container must provide under that name. Generates a nested `Needs` protocol (one `var` per
-/// label), `init(injecting:)` and `injectaDependencies`.
-@attached(extension, conformances: Injectable, names: named(Needs), named(init(injecting:)), named(injectaDependencies))
+/// container must provide under that name. A `Lazy<T>` or `() -> T` parameter reads entry `T`
+/// later (not an edge). Generates a nested `Needs` protocol (one `var` per label),
+/// `init(injecting:)`, `injectaDependencies` and `injectaDeferred`.
+@attached(extension, conformances: Injectable, names: named(Needs), named(init(injecting:)), named(injectaDependencies), named(injectaDeferred))
 public macro Injectable() = #externalMacro(module: "InjectaMacros", type: "InjectableMacro")
 
 /// Marks the initializer `@Injectable` calls when a type has more than one.

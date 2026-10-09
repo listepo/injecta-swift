@@ -17,6 +17,7 @@ Generated from GUIDE.md and AGENTS.md by `INJECTA_BLESS=1 swift test --filter Do
 - Entries
 - Injectable types
 - Scopes
+- Lazy and factories
 - Overrides for tests and previews
 - Swift concurrency
 - The plugin

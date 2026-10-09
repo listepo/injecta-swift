@@ -34,18 +34,34 @@ public struct ContainerModel {
   /// The graph as far as this declaration knows it. `autoWired` supplies the needs of an
   /// `@Injectable` type when the caller has read it (`injecta-check`); the macro passes `nil`
   /// and leaves those edges to the generated `injectaGraph` and to `injecta-check`.
-  public func graph(autoWired: (String) -> [String]? = { _ in nil }) -> Graph {
+  /// `Lazy<T>` and `() -> T` needs come back as deferred, not as edges.
+  public func graph(
+    autoWired: (String) -> (edges: [String], deferred: [String])? = { _ in nil }
+  ) -> Graph {
     Graph(
       container: name,
       nodes: entries.map { entry in
-        let needs = entry.dependencies.map { $0.map(\.label) } ?? autoWired(entry.type) ?? []
-        return Node(name: entry.name, lifetime: entry.lifetime, type: entry.type, dependencies: needs)
+        let edges: [String]
+        let deferred: [String]
+        if let dependencies = entry.dependencies {
+          edges = dependencies.filter { !$0.deferred }.map(\.label)
+          deferred = dependencies.filter(\.deferred).map(\.label)
+        } else if let wired = autoWired(entry.type) {
+          (edges, deferred) = (wired.edges, wired.deferred)
+        } else {
+          (edges, deferred) = ([], [])
+        }
+        return Node(
+          name: entry.name, lifetime: entry.lifetime, type: entry.type, dependencies: edges,
+          deferred: deferred)
       })
   }
 
   /// The checks a single declaration can make: missing names of provider functions, cycles
   /// among them, captive transients. `autoWired` as in `graph(autoWired:)`.
-  public func problems(autoWired: (String) -> [String]? = { _ in nil }) -> [Problem] {
+  public func problems(
+    autoWired: (String) -> (edges: [String], deferred: [String])? = { _ in nil }
+  ) -> [Problem] {
     let graph = graph(autoWired: autoWired)
     var problems: [Problem] = []
     for issue in graph.issues() {
@@ -222,10 +238,11 @@ public enum ContainerReader {
             at: parameter))
         continue
       }
+      let shape = DependencyShape.read(parameter.type, attributes: parameter.attributes)
       dependencies.append(
         Dependency(
-          label: parameter.firstName.trimmedDescription, type: parameter.type.trimmedDescription,
-          node: Syntax(parameter)))
+          label: parameter.firstName.trimmedDescription, type: shape.type, node: Syntax(parameter),
+          wrap: shape.wrap, sendableFactory: shape.sendableFactory))
     }
     entries.append(
       Entry(
