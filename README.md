@@ -234,5 +234,8 @@ INJECTA_BLESS=1 swift test --filter DocsTests     # regenerate llms.txt and llms
 cd Benchmarks && ./measure.sh                     # benchmarks
 ```
 
+GitHub Actions (`.github/workflows/ci.yml`) runs `swift build` and `swift test` on macOS
+(Xcode 27) and Linux (Swift 6.4). The test run includes the docs-freshness check.
+
 Project files: `plan.md` (tasks), `todo.md`, `done.md`, `roadmap.md`, `ideas.md`,
 `toolchain.md`.

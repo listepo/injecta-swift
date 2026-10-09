@@ -1,8 +1,8 @@
 # Injecta (Swift)
 
-No GitHub repository yet (local package). Compile-time dependency injection for Swift 6: macros
-write the wiring as initializer calls, a build-tool plugin checks the whole graph and generates
-the `Needs` conformances; the Swift counterpart of the Rust crate `injecta`.
+Compile-time dependency injection for Swift 6: macros write the wiring as initializer calls, a
+build-tool plugin checks the whole graph and generates the `Needs` conformances; the Swift
+counterpart of the Rust crate `injecta`.
 
 | # | Status | Priority | Complexity | Readiness | Agent |
 | --- | --- | --- | --- | --- | --- |
@@ -10,7 +10,6 @@ the `Needs` conformances; the Swift counterpart of the Rust crate `injecta`.
 | T3 | todo | P1 | 3 | 0% | |
 | T4 | todo | P2 | 2 | 0% | |
 | T5 | todo | P2 | 3 | 0% | |
-| T6 | todo | P2 | 2 | 0% | |
 | T7 | todo | P3 | 2 | 0% | |
 | T8 | todo | P1 | 2 | 0% | |
 | T9 | todo | P3 | 3 | 0% | |
@@ -37,11 +36,6 @@ setup step. Done when a test covers it.
 
 A documented pattern and helper for building async/throwing values before the container
 (`try await AppGraph.make(...)`). Done when GUIDE.md shows it and a test covers it.
-
-### T6. CI
-
-GitHub Actions on macos-latest (Xcode 27): build, test, docs freshness. Done when the workflow runs
-green on a repository.
 
 ### T7. Linux support
 
