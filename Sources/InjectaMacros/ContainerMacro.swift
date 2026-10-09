@@ -58,13 +58,16 @@ public struct ContainerMacro: MemberMacro, ExtensionMacro {
 
     let nodes = model.entries.map { entry -> String in
       let needs: String
+      let deferred: String
       if let dependencies = entry.dependencies {
-        needs = "[" + dependencies.map { "\"\($0.label)\"" }.joined(separator: ", ") + "]"
+        needs = list(dependencies.filter { !$0.deferred }.map(\.label))
+        deferred = list(dependencies.filter(\.deferred).map(\.label))
       } else {
         needs = "\(entry.type).injectaDependencies"
+        deferred = "\(entry.type).injectaDeferred"
       }
       return "      Injecta.Node(name: \"\(entry.name)\", lifetime: .\(entry.lifetime.rawValue), "
-        + "type: \(literal(entry.type)), dependencies: \(needs)),"
+        + "type: \(literal(entry.type)), dependencies: \(needs), deferred: \(deferred)),"
     }
     let graph: DeclSyntax = """
       /// Every entry and what it needs; check it in a test with `injectaGraph.issues()`.
@@ -92,5 +95,9 @@ public struct ContainerMacro: MemberMacro, ExtensionMacro {
 
   private static func literal(_ text: String) -> String {
     "\"" + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+  }
+
+  private static func list(_ names: [String]) -> String {
+    "[" + names.map { "\"\($0)\"" }.joined(separator: ", ") + "]"
   }
 }

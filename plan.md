@@ -7,7 +7,6 @@ counterpart of the Rust crate `injecta`.
 | # | Status | Priority | Complexity | Readiness | Agent |
 | --- | --- | --- | --- | --- | --- |
 | T2 | todo | P1 | 3 | 0% | |
-| T3 | todo | P1 | 3 | 0% | |
 | T4 | todo | P2 | 2 | 0% | |
 | T5 | todo | P2 | 3 | 0% | |
 | T7 | todo | P3 | 2 | 0% | |
@@ -20,12 +19,6 @@ Wire `coreClient`, `secretStore`, `inboxClient` and the stores built from them i
 Cox desktop app (`desktop/macos`) with a `@MainActor` app container and a per-session scope, next
 to PR #184's swift-dependencies version, and compare lines, build time and test ergonomics. Done
 when both versions build and their test suites pass.
-
-### T3. Lazy and provider entries
-
-`Lazy<T>` and `() -> T` dependencies (a transient factory injected into a singleton), the common
-way out of a captive transient. Done when the macros generate them and the graph treats them as
-non-edges for cycles.
 
 ### T4. Better messages for conformance errors without the plugin
 

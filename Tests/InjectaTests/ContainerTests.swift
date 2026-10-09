@@ -148,6 +148,45 @@ struct MainActorTests {
   }
 }
 
+@Suite("Deferred dependencies")
+struct DeferredTests {
+  @Test func aFactoryMakesANewTransientOnEveryCall() {
+    let counter = Counter()
+    let graph = FactoryGraph(counter: counter)
+    let cache = graph.cache
+    #expect(counter.count == 0)
+    let first = cache.clock()
+    let second = cache.clock()
+    #expect(first !== second)
+    #expect(first.id == 1)
+    #expect(second.id == 2)
+  }
+
+  @Test func aProviderFactoryIsGeneratedAsAClosure() {
+    let graph = ProviderFactoryGraph(counter: Counter())
+    #expect(graph.cache.clock() !== graph.cache.clock())
+  }
+
+  @Test func lazyBreaksACycleAndBuildsThePeerOnce() {
+    let graph = FactoryGraph(counter: Counter())
+    let left = graph.left
+    let right = left.right.value
+    #expect(right.left === left)
+    #expect(left.right.value === right)
+    #expect(graph.right === right)
+  }
+
+  @Test func deferredNeedsAreListedApartFromEdgesAndAreNotIssues() {
+    let graph = FactoryGraph.injectaGraph
+    #expect(graph.issues().isEmpty)
+    #expect(graph.node(named: "cache")?.dependencies.isEmpty == true)
+    #expect(graph.node(named: "cache")?.deferred == ["clock"])
+    #expect(graph.node(named: "left")?.deferred == ["right"])
+    #expect(graph.node(named: "right")?.dependencies == ["left"])
+    #expect(graph.describe().contains("cache: Cache [singleton] <- ~clock"))
+  }
+}
+
 @Suite("Introspection")
 struct IntrospectionTests {
   @Test func describeListsEveryEntry() {

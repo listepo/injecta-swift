@@ -20,11 +20,32 @@ public struct Problem: Error, CustomStringConvertible {
   public var description: String { message }
 }
 
+/// How a dependency is passed. `.lazy` and `.factory` are resolved later, so the graph does not
+/// treat them as edges.
+public enum DependencyWrap: Sendable {
+  case direct, lazy, factory
+}
+
 /// A value a type or a provider needs: the argument label is the name the container must provide.
 public struct Dependency {
   public var label: String
+  /// The entry's type. For `Lazy<T>` and `() -> T` this is `T`, which is what the container stores.
   public var type: String
+  public var wrap: DependencyWrap
+  /// The factory was written `@Sendable () -> T`, so the generated closure is `@Sendable`.
+  public var sendableFactory: Bool
   public var node: Syntax
+
+  public init(
+    label: String, type: String, node: Syntax, wrap: DependencyWrap = .direct,
+    sendableFactory: Bool = false
+  ) {
+    (self.label, self.type, self.wrap, self.sendableFactory, self.node) =
+      (label, type, wrap, sendableFactory, node)
+  }
+
+  /// Read later: not a cycle edge and not a captive capture.
+  public var deferred: Bool { wrap != .direct }
 }
 
 /// The attribute names Injecta reacts to, without a module qualifier.

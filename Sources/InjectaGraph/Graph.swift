@@ -19,10 +19,18 @@ public struct Node: Sendable, Hashable {
   public var lifetime: Lifetime
   /// The type as written in source, for messages and exports only.
   public var type: String
+  /// Entries read while this one is built. These are the edges cycles and captive checks walk.
   public var dependencies: [String]
+  /// `Lazy<T>` and `() -> T` needs. The entry must exist, but it is read later, so it is not an
+  /// edge: it neither closes a cycle nor captures a transient.
+  public var deferred: [String]
 
-  public init(name: String, lifetime: Lifetime, type: String, dependencies: [String] = []) {
-    (self.name, self.lifetime, self.type, self.dependencies) = (name, lifetime, type, dependencies)
+  public init(
+    name: String, lifetime: Lifetime, type: String, dependencies: [String] = [],
+    deferred: [String] = []
+  ) {
+    (self.name, self.lifetime, self.type, self.dependencies, self.deferred) =
+      (name, lifetime, type, dependencies, deferred)
   }
 }
 
@@ -52,7 +60,9 @@ public enum Issue: Sendable, Hashable, CustomStringConvertible {
         + "shared part into a third entry both depend on."
     case .captive(let singleton, let transient):
       "singleton '\(singleton)' captures transient '\(transient)': it is built once and kept. "
-        + "Make '\(transient)' a singleton, or make '\(singleton)' transient."
+        + "Make '\(transient)' a singleton, or make '\(singleton)' transient, or depend on "
+        + "`() -> \(transient)` (a new value each call) or `Lazy<\(transient)>` (one value, on "
+        + "first read) instead of `\(transient)`."
     }
   }
 }
@@ -77,7 +87,7 @@ public struct Graph: Sendable, Hashable {
     let byName = Dictionary(nodes.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
     var found: [Issue] = []
     for node in nodes {
-      for dependency in node.dependencies where byName[dependency] == nil {
+      for dependency in node.dependencies + node.deferred where byName[dependency] == nil {
         found.append(.missing(node: node.name, dependency: dependency))
       }
     }
@@ -137,6 +147,9 @@ public struct Graph: Sendable, Hashable {
       for dependency in node.dependencies {
         lines.append("  \"\(node.name)\" -> \"\(dependency)\";")
       }
+      for dependency in node.deferred {
+        lines.append("  \"\(node.name)\" -> \"\(dependency)\" [style=dashed];")
+      }
     }
     lines.append("}")
     return lines.joined(separator: "\n")
@@ -145,7 +158,8 @@ public struct Graph: Sendable, Hashable {
   /// One line per entry, for logs and agents: `name: Type [lifetime] <- a, b`.
   public func describe() -> String {
     nodes.map { node in
-      let needs = node.dependencies.isEmpty ? "" : " <- " + node.dependencies.joined(separator: ", ")
+      let names = node.dependencies + node.deferred.map { "~\($0)" }
+      let needs = names.isEmpty ? "" : " <- " + names.joined(separator: ", ")
       return "\(node.name): \(node.type) [\(node.lifetime.rawValue)]\(needs)"
     }.joined(separator: "\n")
   }

@@ -19,6 +19,9 @@ The full guide is `GUIDE.md` (also in `llms-full.txt`). The short version:
    - `@Provides(.singleton | .transient | .eagerSingleton) func makeName(label: T, ...) -> Type`:
      for protocol types (`any P`), types from other modules, generic types, custom construction.
    - `@Forward var name: Type` in a child container: the parent's entry (`let parent: AppGraph`).
+   - A `Lazy<T>` or `() -> T` parameter reads entry `T` later. It is not a cycle edge and it does
+     not capture a transient. `() -> T` is a new value per call; `Lazy<T>` is one value, on first
+     `.value`. Do not force it from the initializer that received it.
 4. Attach `InjectaCheckPlugin` to the target that declares the container.
 5. Read entries as properties: `graph.repo`. In tests and previews, pass `Overrides` to `init`.
 

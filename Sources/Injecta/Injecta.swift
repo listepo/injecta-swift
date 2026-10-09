@@ -42,9 +42,10 @@ public protocol Container {
 ///
 /// The container calls the initializer marked `@Inject`, else the only initializer, else a
 /// struct's memberwise initializer. Each argument label without a default value is an entry the
-/// container must provide under that name. Generates a nested `Needs` protocol (one `var` per
-/// label), `init(injecting:)` and `injectaDependencies`.
-@attached(extension, conformances: Injectable, names: named(Needs), named(init(injecting:)), named(injectaDependencies))
+/// container must provide under that name. A `Lazy<T>` or `() -> T` parameter reads entry `T`
+/// later (not an edge). Generates a nested `Needs` protocol (one `var` per label),
+/// `init(injecting:)`, `injectaDependencies` and `injectaDeferred`.
+@attached(extension, conformances: Injectable, names: named(Needs), named(init(injecting:)), named(injectaDependencies), named(injectaDeferred))
 public macro Injectable() = #externalMacro(module: "InjectaMacros", type: "InjectableMacro")
 
 /// Marks the initializer `@Injectable` calls when a type has more than one.

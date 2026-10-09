@@ -9,6 +9,13 @@ macro expansions and diagnostics, runtime behaviour and docs freshness; the comp
 against hand-written wiring, swift-dependencies, Factory and Swinject; GUIDE.md, AGENTS.md,
 llms.txt.
 
+### T3. Lazy and provider entries
+
+`Lazy<T>` and `() -> T` (including `@Sendable () -> T`) dependencies. The macro passes
+`Lazy { needs.entry }` or `{ needs.entry }`, and the graph lists them as deferred (`~entry`):
+they are not cycle edges and they do not capture a transient. `() -> T` builds a new value per
+call; `Lazy<T>` builds one, on the first `.value`.
+
 ### T6. CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs `swift build` and `swift test` on macOS with

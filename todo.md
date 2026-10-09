@@ -1,5 +1,4 @@
 - T2. Try Injecta on Cox's app-wide services
-- T3. Lazy and provider entries
 - T4. Better messages for conformance errors without the plugin
 - T5. Async inputs helper
 - T7. Linux support

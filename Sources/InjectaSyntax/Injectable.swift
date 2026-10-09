@@ -101,11 +101,11 @@ public enum InjectableReader {
         problems.append(Problem("a variadic parameter cannot be injected", at: parameter))
         continue
       }
+      let shape = DependencyShape.read(parameter.type, attributes: parameter.attributes)
       dependencies.append(
         Dependency(
-          label: parameter.firstName.trimmedDescription,
-          type: parameter.type.trimmedDescription,
-          node: Syntax(parameter)))
+          label: parameter.firstName.trimmedDescription, type: shape.type, node: Syntax(parameter),
+          wrap: shape.wrap, sendableFactory: shape.sendableFactory))
     }
     return (problems.contains { $0.severity == .error } ? nil : dependencies, problems)
   }
@@ -128,8 +128,11 @@ public enum InjectableReader {
         // A defaulted `var` keeps its default in the memberwise init; a defaulted `let` is not a
         // parameter at all. Either way the container passes nothing.
         if binding.initializer != nil { continue }
+        let shape = DependencyShape.read(type)
         dependencies.append(
-          Dependency(label: name.trimmedDescription, type: type.trimmedDescription, node: Syntax(binding)))
+          Dependency(
+            label: name.trimmedDescription, type: shape.type, node: Syntax(binding), wrap: shape.wrap,
+            sendableFactory: shape.sendableFactory))
       }
     }
     return dependencies

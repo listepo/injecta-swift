@@ -67,6 +67,8 @@ Rules:
   `@Injectable` types.
 - Providers and injected initializers cannot `throw` or be `async`. Build such values before the
   container and pass them in as inputs.
+- A `Lazy<T>` or `() -> T` parameter (also `@Sendable () -> T`) names the entry of type `T` and
+  reads it later. See "Lazy and factories".
 
 ## Injectable types
 
@@ -85,8 +87,8 @@ final class SettingsStore {
 ```
 
 The macro generates a nested `Needs` protocol (one `var` per label), `init(injecting:)`, and
-`injectaDependencies` (the labels, for the graph). Generic types cannot be `@Injectable`; wire them
-with a provider.
+`injectaDependencies` (the labels that are edges) plus `injectaDeferred` (the labels read later).
+Generic types cannot be `@Injectable`; wire them with a provider.
 
 ## Scopes
 
@@ -108,6 +110,51 @@ let scope = SessionGraph(parent: app, session: client)
 
 The parent never sees the child's entries, so an app-wide singleton cannot depend on a
 per-session value: that mistake has no syntax.
+
+## Lazy and factories
+
+A singleton that takes a transient keeps that one instance for the container's life (a captive
+dependency, reported as a warning). A cycle has the same shape: each value needs the other before
+either exists. Both are fixed by reading the dependency later.
+
+```swift
+@Injectable
+final class Cache: Sendable {
+  let clock: @Sendable () -> Clock          // a new Clock each call
+  init(clock: @escaping @Sendable () -> Clock) { self.clock = clock }
+}
+
+@Injectable
+final class Left: Sendable {
+  let right: Lazy<Right>                    // one Right, on first `.value`
+  init(right: Lazy<Right>) { self.right = right }
+}
+
+@Injectable
+final class Right: Sendable {
+  let left: Left
+  init(left: Left) { self.left = left }
+}
+
+@Container
+final class AppGraph: Sendable {
+  let counter: Counter
+  @Transient var clock: Clock
+  @Singleton var cache: Cache               // no captive warning
+  @Singleton var left: Left                 // no cycle
+  @Singleton var right: Right
+}
+```
+
+`() -> T` and `Lazy<T>` are not edges. The entry named by the label must still exist, and a test
+sees it on the graph as `~clock` (`cache: Cache [singleton] <- ~clock`). A provider parameter of
+either shape is wrapped the same way: `func makeCache(clock: @escaping @Sendable () -> Clock)` is
+called with a closure that reads `self.clock`.
+
+`Lazy.value` and the factory closure run the entry's normal resolution, so a transient factory
+builds a new value per call and a singleton factory returns the shared one. Do not read `.value`
+or call the factory from the initializer that just received it: the singleton cell is still being
+filled, and the read waits on the same lock.
 
 ## Overrides for tests and previews
 
@@ -164,7 +211,7 @@ type; the compiler then reports a missing entry as "does not conform to protocol
 | --- | --- | --- |
 | `'x' needs 'y', but the container has no entry named 'y'` | an initializer or provider reads `y` | add an input `let y: T`, a provider `makeY`, or `@Singleton var y: T` |
 | `dependency cycle: a -> b -> a` | the entries need each other | move the shared part into a third entry both depend on |
-| `singleton 'a' captures transient 'b'` (warning) | `a` keeps one `b` forever | make `b` a singleton or `a` transient |
+| `singleton 'a' captures transient 'b'` (warning) | `a` keeps one `b` forever | make `b` a singleton, make `a` transient, or depend on `() -> b` or `Lazy<b>` |
 | `'any P' cannot be auto-wired` | protocol, optional, generic or function type on `@Singleton`/`@Transient` | use `@Provides(.singleton) func makeX(...) -> any P` |
 | `@Singleton is for var entries; a function is a provider` | `@Singleton func ...` | `@Provides(.singleton) func makeX(...)` |
 | `this type has N initializers; mark the one the container calls with @Inject` | ambiguous initializer | put `@Inject` on one |
@@ -243,6 +290,9 @@ The full guide is `GUIDE.md` (also in `llms-full.txt`). The short version:
    - `@Provides(.singleton | .transient | .eagerSingleton) func makeName(label: T, ...) -> Type`:
      for protocol types (`any P`), types from other modules, generic types, custom construction.
    - `@Forward var name: Type` in a child container: the parent's entry (`let parent: AppGraph`).
+   - A `Lazy<T>` or `() -> T` parameter reads entry `T` later. It is not a cycle edge and it does
+     not capture a transient. `() -> T` is a new value per call; `Lazy<T>` is one value, on first
+     `.value`. Do not force it from the initializer that received it.
 4. Attach `InjectaCheckPlugin` to the target that declares the container.
 5. Read entries as properties: `graph.repo`. In tests and previews, pass `Overrides` to `init`.
 

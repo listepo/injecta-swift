@@ -58,9 +58,9 @@ final class ContainerMacroTests: XCTestCase {
           static let injectaGraph = Injecta.Graph(
             container: "AppGraph",
             nodes: [
-              Injecta.Node(name: "home", lifetime: .input, type: "String", dependencies: []),
-              Injecta.Node(name: "core", lifetime: .singleton, type: "any CoreClient", dependencies: ["home"]),
-              Injecta.Node(name: "settings", lifetime: .transient, type: "SettingsStore", dependencies: SettingsStore.injectaDependencies),
+              Injecta.Node(name: "home", lifetime: .input, type: "String", dependencies: [], deferred: []),
+              Injecta.Node(name: "core", lifetime: .singleton, type: "any CoreClient", dependencies: ["home"], deferred: []),
+              Injecta.Node(name: "settings", lifetime: .transient, type: "SettingsStore", dependencies: SettingsStore.injectaDependencies, deferred: SettingsStore.injectaDeferred),
             ])
         }
 
@@ -90,6 +90,33 @@ final class ContainerMacroTests: XCTestCase {
           line: 3, column: 27)
       ],
       macroSpecs: specs, indentationWidth: .spaces(2))
+  }
+
+  func testALazyProviderParameterIsNotACycle() {
+    let diagnostics = expandDiagnostics(
+      """
+      @Container
+      final class G {
+        @Provides(.singleton) func makeA(b: Lazy<Int>) -> Int { b.value }
+        @Provides(.singleton) func makeB(a: Int) -> Int { a }
+      }
+      """)
+    XCTAssertTrue(diagnostics.isEmpty, "\(diagnostics)")
+  }
+
+  func testAFactoryProviderIsPassedAClosure() {
+    let expanded = expand(
+      """
+      @Container
+      final class G {
+        @Transient var clock: Clock
+        @Provides(.singleton) func makeCache(clock: @escaping @Sendable () -> Clock) -> Cache { Cache(clock: clock) }
+      }
+      """)
+    let squeezed = expanded.filter { !$0.isWhitespace }
+    XCTAssertTrue(squeezed.contains("self.makeCache(clock:{@Sendableinself.clock})"), expanded)
+    XCTAssertTrue(expanded.contains("deferred: [\"clock\"]"), expanded)
+    XCTAssertFalse(expanded.contains("dependency cycle"), expanded)
   }
 
   func testACycleBetweenProvidersIsAnError() {

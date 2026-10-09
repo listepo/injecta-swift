@@ -30,8 +30,18 @@ private struct EntryShape {
       name = lowerFirst(functionName.dropFirst(4))
       type = returnType.trimmedDescription
       access = function.modifiers.accessPrefix
-      let arguments = function.signature.parameterClause.parameters.map {
-        "\($0.firstName.text): self.\($0.firstName.text)"
+      let arguments = function.signature.parameterClause.parameters.map { parameter -> String in
+        let shape = DependencyShape.read(parameter.type, attributes: parameter.attributes)
+        let name = parameter.firstName.text
+        switch shape.wrap {
+        case .direct:
+          return "\(name): self.\(name)"
+        case .lazy:
+          return "\(name): Injecta.Lazy { self.\(name) }"
+        case .factory:
+          let body = shape.sendableFactory ? "@Sendable in self.\(name)" : "self.\(name)"
+          return "\(name): { \(body) }"
+        }
       }
       build = "self.\(functionName)(\(arguments.joined(separator: ", ")))"
       isFunction = true
