@@ -22,7 +22,9 @@ The full guide is `GUIDE.md` (also in `llms-full.txt`). The short version:
    - A `Lazy<T>` or `() -> T` parameter reads entry `T` later. It is not a cycle edge and it does
      not capture a transient. `() -> T` is a new value per call; `Lazy<T>` is one value, on first
      `.value`. Do not force it from the initializer that received it.
-4. Attach `InjectaCheckPlugin` to the target that declares the container.
+4. Attach `InjectaCheckPlugin` to the target that declares the container. Without it, a debug
+   build traps on `init` with `missingPluginMessage` (the setup step); a release build fails to
+   compile. A hand-written `extension Container: Type.Needs {}` is the other fix.
 5. Read entries as properties: `graph.repo`. In tests and previews, pass `Overrides` to `init`.
 
 Hard rules:

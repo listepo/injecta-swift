@@ -25,17 +25,18 @@ public struct InjectableMacro: ExtensionMacro {
     let deferred = model.dependencies.filter(\.deferred).map { "\"\($0.label)\"" }
     let arguments = model.dependencies.map { passed($0) }.joined(separator: ", ")
     let initializer = model.kind == .class ? "convenience init" : "init"
-    // A `@Sendable` factory cannot capture `some Needs` (the protocol is not Sendable). The
-    // source is the container, which is Sendable when it builds a Sendable factory.
-    let generic = model.dependencies.contains(where: \.sendableFactory)
-      ? "<Source: Needs & Sendable>" : ""
+    // A `@Sendable` factory captures its source. `Needs: Sendable` makes that source Sendable,
+    // including the `any Needs` a debug build casts to when the conformance might be missing.
+    let sendableNeeds = model.dependencies.contains(where: \.sendableFactory)
+    let needsProtocol = sendableNeeds ? "Needs: Sendable" : "Needs"
+    let generic = sendableNeeds ? "<Source: Needs & Sendable>" : ""
     let needsType = generic.isEmpty ? "some Needs" : "Source"
     let conformance = protocols.isEmpty ? "" : ": Injecta.Injectable"
     let source: DeclSyntax = """
       extension \(raw: type.trimmedDescription)\(raw: conformance) {
         /// What the container must provide to build `\(raw: model.typeName)`. A container conforms
         /// through `@Container`; a missing entry is a "does not conform to `Needs`" error.
-        \(raw: access)protocol Needs {
+        \(raw: access)protocol \(raw: needsProtocol) {
       \(raw: requirements)
         }
 

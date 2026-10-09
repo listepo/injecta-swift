@@ -98,7 +98,7 @@ final class InjectableMacroTests: XCTestCase {
         extension Cache: Injecta.Injectable {
           /// What the container must provide to build `Cache`. A container conforms
           /// through `@Container`; a missing entry is a "does not conform to `Needs`" error.
-          protocol Needs {
+          protocol Needs: Sendable {
             var clock: Clock { get }
             var later: Clock { get }
             var name: String { get }

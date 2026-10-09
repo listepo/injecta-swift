@@ -31,7 +31,14 @@ final class ContainerMacroTests: XCTestCase {
               if let make = _injectaOverrides.settings {
                 return make()
               }
+              #if DEBUG
+              guard let needs = self as? SettingsStore.Needs else {
+                Injecta.missingPlugin("SettingsStore")
+              }
+              return SettingsStore(injecting: needs)
+              #else
               return SettingsStore(injecting: self)
+              #endif
             }
           }
 
@@ -52,6 +59,11 @@ final class ContainerMacroTests: XCTestCase {
             if let value = overrides.core {
               _injecta_core.seed(value)
             }
+            #if DEBUG
+            if !(self is SettingsStore.Needs) {
+              Injecta.missingPlugin("SettingsStore")
+            }
+            #endif
           }
 
           /// Every entry and what it needs; check it in a test with `injectaGraph.issues()`.

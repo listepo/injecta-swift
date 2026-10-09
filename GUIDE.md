@@ -199,7 +199,14 @@ SwiftPM:
 
 Xcode: add the package, then the target's Build Phases → Run Build Tool Plug-ins →
 `InjectaCheckPlugin`. Without the plugin, write the conformance lines yourself, one per auto-wired
-type; the compiler then reports a missing entry as "does not conform to protocol `Needs`".
+type.
+
+A debug build whose plugin was not attached, and whose lines were not written by hand, still
+compiles: constructing the container traps with `missingPluginMessage`, which names
+`InjectaCheckPlugin` and the `extension <Container>: Type.Needs {}` line. The check compares each
+auto-wired entry (the same types `injectaGraph` lists) with the container's conformances. A release
+build keeps the static `Type(injecting: self)` call, so the missing line is a compile error there
+and the resolve path is unchanged.
 
 ## Compile-time errors
 
@@ -213,7 +220,7 @@ type; the compiler then reports a missing entry as "does not conform to protocol
 | `this type has N initializers; mark the one the container calls with @Inject` | ambiguous initializer | put `@Inject` on one |
 | `an injected parameter needs an argument label` | `init(_ x: X)` | give it a label; the label is the entry name |
 | `@Forward reads parent.x; declare the parent container as an input` | no `let parent` | add `let parent: ParentGraph` |
-| `does not conform to protocol 'Needs'` | the plugin is not attached (or the entry is missing) | attach `InjectaCheckPlugin`, or add the entry |
+| `does not conform to protocol 'Needs'` (release), or a trap naming `InjectaCheckPlugin` (debug) | the plugin is not attached | attach `InjectaCheckPlugin`, or add `extension Container: Type.Needs {}` |
 
 ## Introspection
 

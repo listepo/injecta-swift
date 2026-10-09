@@ -49,7 +49,19 @@ public struct ContainerMacro: MemberMacro, ExtensionMacro {
     let parameters = model.parameters.map { "\($0.name): \(storable($0.type))" } + ["overrides: Overrides = Overrides()"]
     let assignments = model.parameters.map { "    self.\($0.name) = \($0.name)" }
     let eager = model.entries.filter { $0.lifetime == .singleton && $0.eager }.map { "    _ = self.\($0.name)" }
-    let body = (assignments + ["    self._injectaOverrides = overrides"] + seeds + eager).joined(separator: "\n")
+    // Compared with `injectaGraph`'s auto-wired entries: each must conform to `Type.Needs`, which
+    // is the line the plugin generates. Debug only, and after every stored property is set.
+    var seen: Set<String> = []
+    let checks = model.entries.filter(\.isAutoWired).compactMap { entry -> String? in
+      guard seen.insert(entry.type).inserted else { return nil }
+      return """
+          #if DEBUG
+          if !(self is \(entry.type).Needs) { Injecta.missingPlugin("\(entry.type)") }
+          #endif
+      """
+    }
+    let body = (assignments + ["    self._injectaOverrides = overrides"] + seeds + checks + eager)
+      .joined(separator: "\n")
     let initializer: DeclSyntax = """
       \(raw: access)init(\(raw: parameters.joined(separator: ", "))) {
       \(raw: body)

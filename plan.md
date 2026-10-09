@@ -7,7 +7,6 @@ counterpart of the Rust crate `injecta`.
 | # | Status | Priority | Complexity | Readiness | Agent |
 | --- | --- | --- | --- | --- | --- |
 | T2 | todo | P1 | 3 | 0% | |
-| T4 | todo | P2 | 2 | 0% | |
 | T5 | todo | P2 | 3 | 0% | |
 | T7 | todo | P3 | 2 | 0% | |
 | T8 | todo | P1 | 2 | 0% | |
@@ -19,11 +18,6 @@ Wire `coreClient`, `secretStore`, `inboxClient` and the stores built from them i
 Cox desktop app (`desktop/macos`) with a `@MainActor` app container and a per-session scope, next
 to PR #184's swift-dependencies version, and compare lines, build time and test ergonomics. Done
 when both versions build and their test suites pass.
-
-### T4. Better messages for conformance errors without the plugin
-
-Detect a missing plugin at run time in DEBUG (`injectaGraph` vs. conformances) and point to the
-setup step. Done when a test covers it.
 
 ### T5. Async inputs helper
 

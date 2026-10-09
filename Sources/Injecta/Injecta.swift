@@ -29,6 +29,23 @@ public protocol Injectable {
   static var injectaDependencies: [String] { get }
 }
 
+/// What a debug build reports when an auto-wired entry has no `Needs` conformance.
+///
+/// The conformance is the line `InjectaCheckPlugin` writes. Without the plugin, and without that
+/// line written by hand, a debug build compiles and traps here on `init`, naming the setup step.
+/// A release build still fails at compile time, on `Type(injecting: self)`.
+public func missingPluginMessage(_ type: String) -> String {
+  "\(type) could not be built: this container does not conform to \(type).Needs. "
+    + "Attach InjectaCheckPlugin to the target that declares the container "
+    + "(GUIDE.md, \"The plugin\"), or add `extension <Container>: \(type).Needs {}` by hand."
+}
+
+/// Traps with `missingPluginMessage(_:)`. Generated into a container's `init` and getters, in
+/// debug builds only.
+public func missingPlugin(_ type: String) -> Never {
+  fatalError(missingPluginMessage(type))
+}
+
 /// A type declared with `@Container`. Conformance comes from the macro.
 public protocol Container {
   /// Every entry, its lifetime and what it needs: for `graph.issues()` in a test, for
