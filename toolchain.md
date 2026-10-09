@@ -3,6 +3,13 @@
 | Program | How to install | Why here | Source |
 | --- | --- | --- | --- |
 | Xcode 27 / Swift 6.4 | Mac App Store | Build, test, macros | https://developer.apple.com/xcode/ |
+| Swift 6.4.0 Linux | `swift:6.4.0-noble` | CI on Ubuntu 24.04 | https://hub.docker.com/_/swift |
+
+## CI
+
+`.github/workflows/ci.yml` runs `swift build` and `swift test` (docs freshness is `DocsTests`)
+on the `xcode-27` GitHub-hosted runner and in `swift:6.4.0-noble`. `macos-latest` is the macOS 26
+image and its default Xcode is 26, so the macOS job does not use that label.
 
 ## SwiftPM
 
